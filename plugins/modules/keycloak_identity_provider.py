@@ -3,7 +3,9 @@
 # GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+from __future__ import (absolute_import, division, print_function)
 from __future__ import annotations
+__metaclass__ = type
 
 DOCUMENTATION = r"""
 module: keycloak_identity_provider
@@ -115,6 +117,15 @@ options:
       - authenticateByDefault
     type: bool
 
+  hide_on_login:
+    description:
+      - If hidden, login with this provider is possible only if requested explicitly, for example using the C(kc_idp_hint)
+        parameter.
+    aliases:
+      - hideOnLogin
+      - hide_on_login_page
+    type: bool
+
   provider_id:
     description:
       - Protocol used by this provider (supported values are V(oidc) or V(saml)).
@@ -129,14 +140,6 @@ options:
         identity provider configuration through check-mode in the RV(existing) field.
     type: dict
     suboptions:
-      hide_on_login_page:
-        description:
-          - If hidden, login with this provider is possible only if requested explicitly, for example using the C(kc_idp_hint)
-            parameter.
-        aliases:
-          - hideOnLoginPage
-        type: bool
-
       gui_order:
         description:
           - Number defining order of the provider in GUI (for example, on Login page).
@@ -569,6 +572,7 @@ def main():
         alias=dict(type="str", required=True),
         add_read_token_role_on_create=dict(type="bool", aliases=["addReadTokenRoleOnCreate"]),
         authenticate_by_default=dict(type="bool", aliases=["authenticateByDefault"]),
+        hide_on_login=dict(type="bool", aliases=["hideOnLogin", "hide_on_login_page"]),
         config=dict(type="dict"),
         display_name=dict(type="str", aliases=["displayName"]),
         enabled=dict(type="bool"),
@@ -607,6 +611,20 @@ def main():
     alias = module.params.get("alias")
     state = module.params.get("state")
     config = module.params.get("config")
+
+    if config is not None:
+        for legacy_key in ("hide_on_login_page", "hideOnLoginPage"):
+            if legacy_key in config:
+                module.deprecate(
+                    f"Passing '{legacy_key}' inside 'config' is deprecated. "
+                    "Use the top-level 'hide_on_login' parameter instead.",
+                    version="4.0.0",
+                    collection_name="middleware_automation.keycloak",
+                )
+                if module.params.get("hide_on_login") is None:
+                    module.params["hide_on_login"] = config.pop(legacy_key)
+                else:
+                    config.pop(legacy_key)
 
     fetch_identity_provider_wellknown_config(kc, config)
 
